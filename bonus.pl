@@ -189,7 +189,7 @@ crtToDecimalVerify(CrtNum, DecimalRepr) :-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% encode
-crtToDecimalEncode(CrtNum, map(Decimal), [new_int(Decimal, 1, 10000) | Constraints]) :-
+crtToDecimalEncode(CrtNum, map(Decimal), [new_int(Decimal, 1, 10000) | Constraints]) :-%TODO gal find a suitable number
     base(Base),
     crtToDecimalEncode(CrtNum, Base, Decimal, Constraints).
 
@@ -220,7 +220,78 @@ crtRepresentationToDecimal(CrtNum, DecimalRepr) :-
 
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% part 2: solve
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% encode
+
+fractionEncode(fraction(N), map(SolutionDigits), Constraints) :-
+    N2 is N * 2,
+    length(SolutionDigits, N2),
+    declareNumerators(SolutionDigits, Constraints-Cs2),
+    declareDenominators(SolutionDigits, Cs2-Cs3),
+    length(SummedTopNumerator, N),
+    beeFindSummedTopNumerator(1, SolutionDigits, SummedTopNumerator, Cs3-Cs4),
+    beeCrtSumAll(SummedTopNumerator, AdditionResultNumerator, Cs4-Cs5),
+    extractDenominators(SolutionDigits, DenominatorsList),
+    beeCrtMultiplyAll(DenominatorsList, AdditionResultDenominator, Cs5-Cs6),
+    Cs6 = [int_eq(AdditionResultDenominator,AdditionResultNumerator)]-[].
+    
+% SummedTopNumerator = a*ef*hi + d*bc*hi + g*bc*ef (for N = 3)
+beeFindSummedTopNumerator(I, _, SummedTopNumerator, Tail-Tail) :-
+    length(SummedTopNumerator, Len),
+    I > Len.
+
+beeFindSummedTopNumerator(I, SolutionDigits, SummedTopNumerator, Cs-Tail) :-
+    length(SummedTopNumerator, Len),
+    I =< Len,
+    beeCalculateIthTopSumComponent(I, SolutionDigits, Component, Cs-Cs2),
+    nth1(I, SummedTopNumerator, Component),
+    I1 is I + 1,
+    beeFindSummedTopNumerator(I1, SolutionDigits, SummedTopNumerator, Cs2-Tail).
+
+
+beeCalculateIthTopSumComponent(I, SolutionDigits, Component, Cs-Tail) :-
+    DenominatorIndex is (I * 2),
+    NumeratorIndex is (I * 2) - 1,
+    nth1(NumeratorIndex, SolutionDigits, [ _ = NumeratorI]),
+    nth1(DenominatorIndex, SolutionDigits, [ _ = DenominatorI]),
+    extractDenominators(SolutionDigits, DenominatorsList),
+    select(DenominatorI, DenominatorsList, DenominatorsForMultiplication),
+    beeCrtMultiplyAll([NumeratorI | DenominatorsForMultiplication], Component, Cs-Tail).
+
+extractDenominators([], []).
+extractDenominators([_, Denominator | Rest], [Denominator | RestExtracted]) :-
+    extractDenominators(Rest, RestExtracted).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+declareDenominators([], Tail-Tail).
+declareDenominators([_, Num = CrtNum | Rest], [new_int(Num, 11, 99) | RestConstraints]-Tail) :-
+    base(Base),
+    createCrtNum(CrtNum, Base, RestConstraints-Cs2), % create the variables of the representation
+    setCrtCorrectnessConstraints(CrtNum, Base, Num, Cs2-Cs3), % force the correctness of the representation
+    declareDenominators(Rest, Cs3-Tail).
+
+
+declareNumerators([], Tail-Tail).
+declareNumerators([Num = CrtNum, _ | Rest], [new_int(Num, 1, 9) | RestConstraints]-Tail) :-
+    base(Base),
+    createCrtNum(CrtNum, Base, RestConstraints-Cs2), % create the variables of the representation
+    setCrtCorrectnessConstraints(CrtNum, Base, Num, Cs2-Cs3), % force the correctness of the representation
+    declareNumerators(Rest, Cs3-Tail).
+
+
+createCrtNum([], [], Tail-Tail).
+createCrtNum([HCrtNum | RestCrtNum], [HBase | RestBase], [new_int(HCrtNum, 0, HBase) | RestConstraints]-Tail) :-
+    createCrtNum(RestCrtNum, RestBase, RestConstraints-Tail).
+
+
+setCrtCorrectnessConstraints([], [], _, Tail-Tail).
+setCrtCorrectnessConstraints([ HCrtNum | RestCrtNum], [HBase | RestBase], Decimal, [ int_mod(Decimal, HBase, HCrtNum) | RestConstraints]-Tail) :-
+    setCrtCorrectnessConstraints(RestCrtNum, RestBase, Decimal, RestConstraints-Tail).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -234,8 +305,8 @@ crtRepresentationToDecimal(CrtNum, DecimalRepr) :-
 %     writeln(Num).
 
 
-t:-
-    verify(3, [5, 3, 4, 7, 6, 8, 9, 1, 2]).
+% t:-
+%     verify(3, [5, 3, 4, 7, 6, 8, 9, 1, 2]).
     % length(SummedTopNumerator, 3),
     % NumeratorsList = [[1,2,0,5,5],[1,1,2,0,7],[1,0,4,2,9]],
     % DenominatorsList = [[0,1,4,6,1],[0,2,3,5,2],[0,0,2,5,1]],
