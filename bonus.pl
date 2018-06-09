@@ -2,7 +2,8 @@
 :- use_module('./bee/bApplications/auxs/auxRunExpr',[runExpr/5, runExprMax/5, runExprMin/5, decodeInt/2, decodeIntArray/2]).
 :- use_module('./bee/bApplications/auxs/auxMatrix',[matrixCreate/3, matrixGetCell/4]).
 
-
+% TODO ask mike:
+% on verify Im assuming the input a list of digits and just count the appearances
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% part 1: verify
@@ -12,6 +13,7 @@ verify(N, DigitList) :-
     length(DigitList, Len),
     0 is mod(Len, 3),
     N is div(Len, 3),
+    validateDigitAppearances(N, DigitList),
     parseDigitList(DigitList, NumeratorsList, DenominatorsList),
     length(SummedTopNumerator, N),
     findSummedTopNumerator(1, NumeratorsList, DenominatorsList, SummedTopNumerator),
@@ -20,6 +22,26 @@ verify(N, DigitList) :-
     AdditionResultDenominator == AdditionResultNumerator.
 
 
+validateDigitAppearances(N, Instance) :-
+    N3 is N * 3,
+    MaxAppearances is ceiling(N3 / 9),
+    findall(X, between(1, 9, X), Digits),
+    validateMaxAppearancesPerDigit(Instance, MaxAppearances, Digits).
+
+
+validateMaxAppearancesPerDigit(_, _, []).
+validateMaxAppearancesPerDigit(Instance, MaxAppearances, [Digit | RestDigits]) :-
+    count(Instance, Digit, Appearances),
+    Appearances =< MaxAppearances,
+    validateMaxAppearancesPerDigit(Instance, MaxAppearances, RestDigits).
+
+count([],_,0).
+count([Element|T],Element,Y):- 
+    count(T,Element,Z), 
+    Y is 1+Z.
+count([Other|T],Element,Z):- 
+    Other \= Element,
+    count(T,Element,Z).
 
 % returns the crt representations of the denominator and numerators in the list
 parseDigitList([], [], []).
