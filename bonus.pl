@@ -23,12 +23,11 @@ verify(N, DigitList) :-
 
 % returns the crt representations of the denominator and numerators in the list
 parseDigitList([], [], []).
-parseDigitList(DigitList, [CurrentCrtNumerator | RestNumerators], [CurrentCrtDenominator | RestDenominators]) :-
-    findall(E, (nth1(I,DigitList,E), I =< 3), [Xi, Yi, Zi]),%TODO consider using syntax [Xi, Yi, Zi | RestNumerators]
+parseDigitList([ Xi, Yi, Zi | Rest], [CurrentCrtNumerator | RestNumerators], [CurrentCrtDenominator | RestDenominators]) :-
     DecimalDenominator is Yi * 10 + Zi,
     crtRepresentation(DecimalDenominator, CurrentCrtDenominator),
     crtRepresentation(Xi, CurrentCrtNumerator),
-    append([Xi, Yi, Zi], Rest, DigitList),
+    % append([Xi, Yi, Zi], Rest, DigitList),
     parseDigitList(Rest, RestNumerators, RestDenominators).
 
 % SummedTopNumerator = a*ef*hi + d*bc*hi + g*bc*ef (for N = 3)
