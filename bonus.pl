@@ -1,4 +1,4 @@
-:- module('bonus', [ crtRepresentationToDecimal/2 ]).
+:- module('bonus', [ crtRepresentationToDecimal/2, solve/2 ]).
 :- use_module('./bee/bApplications/auxs/auxRunExpr',[runExpr/5, runExprMax/5, runExprMin/5, decodeInt/2, decodeIntArray/2]).
 :- use_module('./bee/bApplications/auxs/auxMatrix',[matrixCreate/3, matrixGetCell/4]).
 
@@ -78,9 +78,9 @@ calculateIthTopSumComponent(I, NumeratorsList, DenominatorsList, Component) :-
 %% crt representation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-base([2, 3, 5, 7, 11, 13, 17, 19]).
+base([2, 3, 5, 7, 11, 13, 17]).
 % prime numbers
-% 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199
+% 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199
 
 crtRepresentation(Num, Repr) :-
     base(Base),
@@ -134,7 +134,7 @@ beeCrtAddition(Num1, Num2, Result, Cs-Tail) :-
     base(Base),
     beeCrtAddition(Base, Num1, Num2, Result-[], Cs-Tail).
 
-beeCrtAddition([], [], [], Tail-Tail, CsTail-CsTail).
+beeCrtAddition(_, [], [], Tail-Tail, CsTail-CsTail).
 beeCrtAddition([HBase | RestBase], [H1 | Rest1], [H2 | Rest2], [Res | RestRes]-Tail, Cs-CsTail) :-
     HBase2 is HBase * 2,
     % Sum is H1 + H2,
@@ -156,10 +156,10 @@ beeCrtSumAll([X1, X2 | Rest], Result, Cs-Tail) :-
 
 beeCrtMultiplication(Num1, Num2, Result, Cs-Tail) :-
     base(Base),
-    beeCrtMultiplication(Base, Num1, Num2, Result-[], Cs-Tail).
+    beeCrtMultiplication(Base, Num1, Num2, Result, Cs-Tail).
 
-beeCrtMultiplication([], [], [], Tail-Tail, CsTail-CsTail).
-beeCrtMultiplication([HBase | RestBase], [H1 | Rest1], [H2 | Rest2], [Res | RestRes]-Tail, Cs-CsTail) :-
+beeCrtMultiplication(_, [], [], _, CsTail-CsTail).
+beeCrtMultiplication([HBase | RestBase], [H1 | Rest1], [H2 | Rest2], [Res | RestRes], Cs-CsTail) :-
     HBase2 is HBase * HBase,
     % Mul is H1 * H2,
     % Res is mod(Mul, HBase),
@@ -168,7 +168,7 @@ beeCrtMultiplication([HBase | RestBase], [H1 | Rest1], [H2 | Rest2], [Res | Rest
         int_mul(H1, H2, MulRes),
         new_int(Res, 0, HBase),
         int_mod(MulRes, HBase, Res) | RestCs ],
-    beeCrtMultiplication(RestBase, Rest1, Rest2, RestRes-Tail, RestCs-CsTail).
+    beeCrtMultiplication(RestBase, Rest1, Rest2, RestRes, RestCs-CsTail).
 
 % beeCrtMultiplyAll(NumList+, Result-, Cs-) - aggregative multiply all crt numbers in NumList
 beeCrtMultiplyAll([Result], Result, Tail-Tail).
@@ -233,9 +233,10 @@ fractionEncode(fraction(N), map(SolutionDigits), Constraints) :-
     declareNumerators(SolutionDigits, Constraints-Cs2),
     declareDenominators(SolutionDigits, Cs2-Cs3),
     length(SummedTopNumerator, N),
-    beeFindSummedTopNumerator(1, SolutionDigits, SummedTopNumerator, Cs3-Cs4),
+    extractCrtSolutionDigits(SolutionDigits, CrtSolutionDigits),
+    beeFindSummedTopNumerator(1, CrtSolutionDigits, SummedTopNumerator, Cs3-Cs4),
     beeCrtSumAll(SummedTopNumerator, AdditionResultNumerator, Cs4-Cs5),
-    extractDenominators(SolutionDigits, DenominatorsList),
+    extractDenominators(CrtSolutionDigits, DenominatorsList),
     beeCrtMultiplyAll(DenominatorsList, AdditionResultDenominator, Cs5-Cs6),
     Cs6 = [int_eq(AdditionResultDenominator,AdditionResultNumerator)]-[].
     
@@ -245,7 +246,7 @@ beeFindSummedTopNumerator(I, _, SummedTopNumerator, Tail-Tail) :-
     I > Len.
 
 beeFindSummedTopNumerator(I, SolutionDigits, SummedTopNumerator, Cs-Tail) :-
-    length(SummedTopNumerator, Len),
+    length(SummedTopNumerator, Len),% 2 * N
     I =< Len,
     beeCalculateIthTopSumComponent(I, SolutionDigits, Component, Cs-Cs2),
     nth1(I, SummedTopNumerator, Component),
@@ -256,20 +257,20 @@ beeFindSummedTopNumerator(I, SolutionDigits, SummedTopNumerator, Cs-Tail) :-
 beeCalculateIthTopSumComponent(I, SolutionDigits, Component, Cs-Tail) :-
     DenominatorIndex is (I * 2),
     NumeratorIndex is (I * 2) - 1,
-    nth1(NumeratorIndex, SolutionDigits, [ _ = NumeratorI]),
-    nth1(DenominatorIndex, SolutionDigits, [ _ = DenominatorI]),
+    nth1(NumeratorIndex, SolutionDigits,  NumeratorI),
+    nth1(DenominatorIndex, SolutionDigits,  DenominatorI),
     extractDenominators(SolutionDigits, DenominatorsList),
-    select(DenominatorI, DenominatorsList, DenominatorsForMultiplication),
+    select(DenominatorI, DenominatorsList, DenominatorsForMultiplication),% all denominators but denominatorI
     beeCrtMultiplyAll([NumeratorI | DenominatorsForMultiplication], Component, Cs-Tail).
 
 extractDenominators([], []).
 extractDenominators([_, Denominator | Rest], [Denominator | RestExtracted]) :-
     extractDenominators(Rest, RestExtracted).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 declareDenominators([], Tail-Tail).
-declareDenominators([_, Num = CrtNum | Rest], [new_int(Num, 11, 99) | RestConstraints]-Tail) :-
+% declareDenominators([_, Num = CrtNum | Rest], [new_int(Num, 11, 99) | RestConstraints]-Tail) :-
+declareDenominators([_, Num = CrtNum | Rest], RestConstraints-Tail) :-
     base(Base),
     createCrtNum(CrtNum, Base, RestConstraints-Cs2), % create the variables of the representation
     setCrtCorrectnessConstraints(CrtNum, Base, Num, Cs2-Cs3), % force the correctness of the representation
@@ -277,21 +278,70 @@ declareDenominators([_, Num = CrtNum | Rest], [new_int(Num, 11, 99) | RestConstr
 
 
 declareNumerators([], Tail-Tail).
-declareNumerators([Num = CrtNum, _ | Rest], [new_int(Num, 1, 9) | RestConstraints]-Tail) :-
+% declareNumerators([Num = CrtNum, _ | Rest], [new_int(Num, 1, 9) | RestConstraints]-Tail) :-
+declareNumerators([Num = CrtNum, _ | Rest], RestConstraints-Tail) :-
     base(Base),
     createCrtNum(CrtNum, Base, RestConstraints-Cs2), % create the variables of the representation
     setCrtCorrectnessConstraints(CrtNum, Base, Num, Cs2-Cs3), % force the correctness of the representation
     declareNumerators(Rest, Cs3-Tail).
 
-
+% only declares the CRT representation variables
 createCrtNum([], [], Tail-Tail).
 createCrtNum([HCrtNum | RestCrtNum], [HBase | RestBase], [new_int(HCrtNum, 0, HBase) | RestConstraints]-Tail) :-
     createCrtNum(RestCrtNum, RestBase, RestConstraints-Tail).
 
-
+% create the mapping between the decimal and the contents of the crt
 setCrtCorrectnessConstraints([], [], _, Tail-Tail).
 setCrtCorrectnessConstraints([ HCrtNum | RestCrtNum], [HBase | RestBase], Decimal, [ int_mod(Decimal, HBase, HCrtNum) | RestConstraints]-Tail) :-
     setCrtCorrectnessConstraints(RestCrtNum, RestBase, Decimal, RestConstraints-Tail).
+
+extractCrtSolutionDigits([], []).
+extractCrtSolutionDigits([ _ = Crt | Rest], [Crt | RestCrt]) :-
+    extractCrtSolutionDigits(Rest, RestCrt).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% decode
+
+fractionDecode(map(SolutionDigits), Solution) :-
+    length(SolutionDigits, N2),
+    N is N2 / 2,
+    N3 is N * 3,
+    decodeSolutionDigits(SolutionDigits),
+    length(Solution, N3),
+    parseSolutionDigits(SolutionDigits, Solution, 1).
+
+
+% the 3 digits represent the fraction A/BC
+decodeSolutionDigits([A = CrtNumeratorNum, BC = CrtDenominatorNum | Rest]) :-
+    crtRepresentationToDecimal(CrtNumeratorNum, A),
+    crtRepresentationToDecimal(CrtDenominatorNum, BC),
+    decodeSolutionDigits(Rest).
+
+% SolutionDigits
+parseSolutionDigits([A = _, BC = _ | Rest], Solution, I) :-
+    I3 is I * 3,
+    I3_2 is I3 - 2,
+    I3_1 is I3 - 1,
+    nth1(I3_2, Solution, A),
+    B is floor(BC / 10),
+    C is mod(BC, 10),
+    nth1(I3_1, Solution, B),
+    nth1(I3, Solution, C),
+    I1 is I + 1,
+    parseSolutionDigits(Rest, Solution, I1).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% runSolveExperiment
+
+solve(fraction(N), Solution) :-
+    runExpr(fraction(N),Solution,
+        bonus:fractionEncode,
+        bonus:fractionDecode,
+        bonus:verify).
+
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
