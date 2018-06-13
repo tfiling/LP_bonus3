@@ -310,18 +310,29 @@ fractionDecode(map(SolutionDigits), Solution) :-
     length(SolutionDigits, N2),
     N is N2 / 2,
     N3 is N * 3,
-    decodeSolutionDigits(SolutionDigits),
+    decodeSolutionDigits(SolutionDigits, SolutionDigits1),
     length(Solution, N3),
-    parseSolutionDigits(SolutionDigits, Solution, 1).
+    parseSolutionDigits(SolutionDigits1, Solution, 1),
+    writeln(Solution).
 
 
 % the 3 digits represent the fraction A/BC
-decodeSolutionDigits([A = CrtNumeratorNum, BC = CrtDenominatorNum | Rest]) :-
-    crtRepresentationToDecimal(CrtNumeratorNum, A),
-    crtRepresentationToDecimal(CrtDenominatorNum, BC),
-    decodeSolutionDigits(Rest).
+decodeSolutionDigits([], []).
+decodeSolutionDigits([_ = CrtNumeratorNum, _ = CrtDenominatorNum | Rest], [A = CrtNumeratorNum, BC = CrtDenominatorNum | Rest1]) :-
+    decodeCrt(CrtNumeratorNum, DecodedCrtNumeratorNum),
+    decodeCrt(CrtDenominatorNum, DecodedCrtDenominatorNum),
+    crtRepresentationToDecimal(DecodedCrtNumeratorNum, A),
+    crtRepresentationToDecimal(DecodedCrtDenominatorNum, BC),
+    decodeSolutionDigits(Rest, Rest1).
+
+
+decodeCrt([], []).
+decodeCrt([H | T], [DH | DT]) :-
+    decodeInt(H, DH),
+    decodeCrt(T, DT).
 
 % SolutionDigits
+parseSolutionDigits([], _, _).
 parseSolutionDigits([A = _, BC = _ | Rest], Solution, I) :-
     I3 is I * 3,
     I3_2 is I3 - 2,
