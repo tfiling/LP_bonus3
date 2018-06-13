@@ -249,12 +249,13 @@ beeFindSummedTopNumerator(I, SolutionDigits, SummedTopNumerator, Cs-Tail) :-
 
 
 beeCalculateIthTopSumComponent(I, SolutionDigits, Component, Cs-Tail) :-
-    DenominatorIndex is (I * 2),
+    % DenominatorIndex is (I * 2),
     NumeratorIndex is (I * 2) - 1,
     nth1(NumeratorIndex, SolutionDigits,  NumeratorI),
-    nth1(DenominatorIndex, SolutionDigits,  DenominatorI),
+    % nth1(DenominatorIndex, SolutionDigits,  DenominatorI),
     extractDenominators(SolutionDigits, DenominatorsList),
-    select(DenominatorI, DenominatorsList, DenominatorsForMultiplication),% all denominators but denominatorI
+    % select(DenominatorI, DenominatorsList, DenominatorsForMultiplication),% all denominators but denominatorI
+    subtractIthElement(I, 1, DenominatorsList, DenominatorsForMultiplication),
     beeCrtMultiplyAll([NumeratorI | DenominatorsForMultiplication], Component, Cs-Tail).
 
 extractDenominators([], []).
@@ -262,9 +263,18 @@ extractDenominators([_, Denominator | Rest], [Denominator | RestExtracted]) :-
     extractDenominators(Rest, RestExtracted).
 
 
+subtractIthElement(_, _, [], []).
+subtractIthElement(I, I, [_ | T], SubtractedList) :-
+    I1 is I + 1,
+    subtractIthElement(I, I1, T, SubtractedList).
+subtractIthElement(I, J, [H | T], [H | SubT]) :-
+    I \== J,
+    J1 is J + 1,
+    subtractIthElement(I, J1, T, SubT).
+
 declareDenominators([], Tail-Tail).
-% declareDenominators([_, Num = CrtNum | Rest], [new_int(Num, 11, 99) | RestConstraints]-Tail) :-
-declareDenominators([_, Num = CrtNum | Rest], RestConstraints-Tail) :-
+declareDenominators([_, Num = CrtNum | Rest], [new_int(Num, 11, 99) | RestConstraints]-Tail) :-
+% declareDenominators([_, Num = CrtNum | Rest], RestConstraints-Tail) :-
     base(Base),
     createCrtNum(CrtNum, Base, RestConstraints-Cs2), % create the variables of the representation
     setCrtCorrectnessConstraints(CrtNum, Base, Num, Cs2-Cs3), % force the correctness of the representation
@@ -272,8 +282,8 @@ declareDenominators([_, Num = CrtNum | Rest], RestConstraints-Tail) :-
 
 
 declareNumerators([], Tail-Tail).
-% declareNumerators([Num = CrtNum, _ | Rest], [new_int(Num, 1, 9) | RestConstraints]-Tail) :-
-declareNumerators([Num = CrtNum, _ | Rest], RestConstraints-Tail) :-
+declareNumerators([Num = CrtNum, _ | Rest], [new_int(Num, 1, 9) | RestConstraints]-Tail) :-
+% declareNumerators([Num = CrtNum, _ | Rest], RestConstraints-Tail) :-
     base(Base),
     createCrtNum(CrtNum, Base, RestConstraints-Cs2), % create the variables of the representation
     setCrtCorrectnessConstraints(CrtNum, Base, Num, Cs2-Cs3), % force the correctness of the representation
