@@ -1,6 +1,6 @@
 :- module('bonus', [ crtRepresentationToDecimal/2, solve/2 ]).
 :- use_module('./bee/bApplications/auxs/auxRunExpr',[runExpr/5, runExprMax/5, runExprMin/5, decodeInt/2, decodeIntArray/2]).
-:- use_module('./bee/bApplications/auxs/auxMatrix',[matrixCreate/3, matrixGetCell/4]).
+:- use_module('./bee/bApplications/auxs/auxMatrix',[matrixCreate/3, matrixGetCell/4, matrixTranspose/2]).
 
 % TODO ask mike:
 % on verify Im assuming the input a list of digits and just count the appearances
@@ -134,47 +134,41 @@ beeCrtAddition(Num1, Num2, Result, Cs-Tail) :-
     base(Base),
     beeCrtAddition(Base, Num1, Num2, Result-[], Cs-Tail).
 
-beeCrtAddition(_, [], [], Tail-Tail, CsTail-CsTail).
-beeCrtAddition([HBase | RestBase], [H1 | Rest1], [H2 | Rest2], [Res | RestRes]-Tail, Cs-CsTail) :-
-    HBase2 is HBase * 2,
-    % Sum is H1 + H2,
-    % Res is mod(Sum, HBase),
+beeCrtSumAll(Args, Result, Cs-Tail) :-
+    matrixTranspose(Args, ArgsT),
+    base(Base),
+    tmpSum(ArgsT, Result, Base, Cs-Tail).
+
+
+tmpSum([], [], [], Tail-Tail).
+tmpSum([H | T], [HR | TR], [HB | TB], Cs-Tail) :-
     Cs = [
-        new_int(Sum, 0, HBase2), 
-        int_plus(H1, H2, Sum),
-        new_int(Res, 0, HBase),
-        int_mod(Sum, HBase, Res) | RestCs ],
-    beeCrtAddition(RestBase, Rest1, Rest2, RestRes-Tail, RestCs-CsTail).
-
-
-% beeCrtSumAll(NumList+, Result-, Cs-) - aggregative add all crt numbers in NumList into the sum Result
-beeCrtSumAll([Result], Result, Tail-Tail).
-beeCrtSumAll([X1, X2 | Rest], Result, Cs-Tail) :-
-    beeCrtAddition(X1, X2, Res, Cs-Cs2),
-    beeCrtSumAll([Res | Rest], Result, Cs2-Tail).
+        new_int(HR, 0, HB), 
+        int_array_sum_modK(H, HB, HR) | Cs2
+    ],
+    tmpSum(T, TR, TB, Cs2-Tail).
 
 
 beeCrtMultiplication(Num1, Num2, Result, Cs-Tail) :-
     base(Base),
     beeCrtMultiplication(Base, Num1, Num2, Result, Cs-Tail).
 
-beeCrtMultiplication(_, [], [], _, CsTail-CsTail).
-beeCrtMultiplication([HBase | RestBase], [H1 | Rest1], [H2 | Rest2], [Res | RestRes], Cs-CsTail) :-
-    HBase2 is HBase * HBase,
-    % Mul is H1 * H2,
-    % Res is mod(Mul, HBase),
-    Cs = [
-        new_int(MulRes, 0, HBase2),
-        int_mul(H1, H2, MulRes),
-        new_int(Res, 0, HBase),
-        int_mod(MulRes, HBase, Res) | RestCs ],
-    beeCrtMultiplication(RestBase, Rest1, Rest2, RestRes, RestCs-CsTail).
 
-% beeCrtMultiplyAll(NumList+, Result-, Cs-) - aggregative multiply all crt numbers in NumList
-beeCrtMultiplyAll([Result], Result, Tail-Tail).
-beeCrtMultiplyAll([X1, X2 | Rest], Result, Cs-Tail) :-
-    beeCrtMultiplication(X1, X2, Res, Cs-Cs2),
-    beeCrtMultiplyAll([Res | Rest], Result, Cs2-Tail).
+beeCrtMultiplyAll(Args, Result, Cs-Tail) :-
+    matrixTranspose(Args, ArgsT),
+    base(Base),
+    tmpMul(ArgsT, Result, Base, Cs-Tail).
+
+
+tmpMul([], [], [], Tail-Tail).
+tmpMul([H | T], [HR | TR], [HB | TB], Cs-Tail) :-
+    Cs = [
+        new_int(Product, 0, 99999), % TODO gal find suitable number
+        int_array_times(H, Product),
+        new_int(HR, 0, HB),
+        int_mod(Product, HB, HR) | Cs2
+    ],
+    tmpMul(T, TR, TB, Cs2-Tail).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
