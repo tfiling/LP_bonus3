@@ -183,7 +183,7 @@ crtToDecimalVerify(CrtNum, DecimalRepr) :-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% encode
-crtToDecimalEncode(CrtNum, map(Decimal), [new_int(Decimal, 1, 10000) | Constraints]) :-%TODO gal find a suitable number
+crtToDecimalEncode(CrtNum, map(Decimal), [new_int(Decimal, 1, 99999) | Constraints]) :-%TODO gal find a suitable number
     base(Base),
     crtToDecimalEncode(CrtNum, Base, Decimal, Constraints).
 
@@ -232,7 +232,8 @@ fractionEncode(fraction(N), map(SolutionDigits), Constraints) :-
     beeCrtSumAll(SummedTopNumerator, AdditionResultNumerator, Cs4-Cs5),
     extractDenominators(CrtSolutionDigits, DenominatorsList),
     beeCrtMultiplyAll(DenominatorsList, AdditionResultDenominator, Cs5-Cs6),
-    Cs6 = [int_eq(AdditionResultDenominator,AdditionResultNumerator)]-[].
+    applyDigitAppearancesConstraints(SolutionDigits, N, Cs6-Cs7),
+    Cs7 = [int_arrays_eq(AdditionResultDenominator,AdditionResultNumerator)].
     
 % SummedTopNumerator = a*ef*hi + d*bc*hi + g*bc*ef (for N = 3)
 beeFindSummedTopNumerator(I, _, SummedTopNumerator, Tail-Tail) :-
@@ -249,12 +250,9 @@ beeFindSummedTopNumerator(I, SolutionDigits, SummedTopNumerator, Cs-Tail) :-
 
 
 beeCalculateIthTopSumComponent(I, SolutionDigits, Component, Cs-Tail) :-
-    % DenominatorIndex is (I * 2),
     NumeratorIndex is (I * 2) - 1,
     nth1(NumeratorIndex, SolutionDigits,  NumeratorI),
-    % nth1(DenominatorIndex, SolutionDigits,  DenominatorI),
     extractDenominators(SolutionDigits, DenominatorsList),
-    % select(DenominatorI, DenominatorsList, DenominatorsForMultiplication),% all denominators but denominatorI
     subtractIthElement(I, 1, DenominatorsList, DenominatorsForMultiplication),
     beeCrtMultiplyAll([NumeratorI | DenominatorsForMultiplication], Component, Cs-Tail).
 
@@ -302,6 +300,39 @@ setCrtCorrectnessConstraints([ HCrtNum | RestCrtNum], [HBase | RestBase], Decima
 extractCrtSolutionDigits([], []).
 extractCrtSolutionDigits([ _ = Crt | Rest], [Crt | RestCrt]) :-
     extractCrtSolutionDigits(Rest, RestCrt).
+
+applyDigitAppearancesConstraints(SolutionDigits, N, Constraints-Tail) :-
+    convertRepresentationToDirect(SolutionDigits, ConvertedSolutionDigits, Constraints-Cs2),
+    matrixTranspose(ConvertedSolutionDigits, TransposedConvertedDigits),
+    maxSumDirectRepresentationDigits(N, MaxSumValue),
+    sumDirectRepresentationDigits(TransposedConvertedDigits, MaxSumValue, Cs2-Tail).
+
+% A/BC fraction at a time
+convertRepresentationToDirect([], [], Tail-Tail).
+convertRepresentationToDirect([AInt = _, BC = _ | Rest], [A, B, C | RestConvertedSolutionDigits], Cs-Tail) :-
+    Cs = [
+        new_int_dual(ADirect, 1, 9),
+        int_eq(ADirect, AInt),
+        int_direct2bool_array(ADirect, A, 1),
+        new_int_dual(BDirect, 1, 9), 
+        int_div(BC, 10, BDirect), 
+        int_direct2bool_array(BDirect, B, 1),
+        new_int_dual(CDirect, 1, 9), 
+        int_mod(BC, 10, CDirect),
+        int_direct2bool_array(CDirect, C, 1) | Cs2
+        ],
+    convertRepresentationToDirect(Rest, RestConvertedSolutionDigits, Cs2-Tail).
+
+sumDirectRepresentationDigits([], _, Tail-Tail).
+sumDirectRepresentationDigits([H | T], [new_int(Sum, -1000, MaxSumValue), int_array_sum(H, Sum) | Rest]-Tail) :-%TODO gal find better numbers
+    sumDirectRepresentationDigits(T, MaxSumValue, Rest-Tail).
+
+
+maxSumDirectRepresentationDigits(N, MaxSumValue) :-
+    N3 is N * 3,
+    MaxAppearances is ceiling(N3 / 9),
+    MaxSumValue is MaxAppearances - (N3 - MaxAppearances).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% decode
