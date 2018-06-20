@@ -162,61 +162,18 @@ beeCrtMultiplication(Num1, Num2, Result, Cs-Tail) :-
 beeCrtMultiplyAll(Args, Result, Cs-Tail) :-
     matrixTranspose(Args, ArgsT),
     base(Base),
-    tmpMul(ArgsT, Result, Base, Cs-Tail).
+    beeCrtMultiplyAll(ArgsT, Result, Base, Cs-Tail).
 
 
-tmpMul([], [], [], Tail-Tail).
-tmpMul([H | T], [HR | TR], [HB | TB], Cs-Tail) :-
+beeCrtMultiplyAll([], [], [], Tail-Tail).
+beeCrtMultiplyAll([H | T], [HR | TR], [HB | TB], Cs-Tail) :-
     Cs = [
         new_int(Product, 0, 1000), % TODO gal find suitable number
         int_array_times(H, Product),
         new_int(HR, 0, HB),
         int_mod(Product, HB, HR) | Cs2
     ],
-    tmpMul(T, TR, TB, Cs2-Tail).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% convert crt representation into decimal representation utility
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% verify
-crtToDecimalVerify(CrtNum, DecimalRepr) :-
-    crtRepresentation(DecimalRepr, ExpectedCrt),
-    ExpectedCrt == CrtNum.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% encode
-crtToDecimalEncode(CrtNum, map(Decimal), [new_int(Decimal, 1, 1000) | Constraints]) :-%TODO gal find a suitable number
-    base(Base),
-    crtToDecimalEncode(CrtNum, Base, Decimal, Constraints).
-
-
-crtToDecimalEncode([], [], _, []).
-crtToDecimalEncode([ HCrtNum | RestCrtNum], [HBase | RestBase], Decimal, [ int_mod(Decimal, HBase, HCrtNum) | RestConstraints]) :-
-    crtToDecimalEncode(RestCrtNum, RestBase, Decimal, RestConstraints).
-    
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% decode
-
-crtToDecimalDecode(map(X), Decimal) :-
-    decodeInt(X, Decimal).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% crtRepresentationToDecimal
-
-crtRepresentationToDecimal(CrtNum, DecimalRepr) :-
-    runExpr(CrtNum,DecimalRepr,
-        bonus:crtToDecimalEncode,
-        bonus:crtToDecimalDecode,
-        bonus:crtToDecimalVerify).
-
-
-
-
-
+    beeCrtMultiplyAll(T, TR, TB, Cs2-Tail).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -228,19 +185,25 @@ crtRepresentationToDecimal(CrtNum, DecimalRepr) :-
 
 fractionEncode(fraction(N), map(SolutionDigits), Constraints) :-
     N2 is N * 2,
-    length(SolutionDigits, N2),
-    declareNumerators(SolutionDigits, Constraints-Cs2),
-    declareDenominators(SolutionDigits, Cs2-Cs3),
+    length(SolutionDigits, N2), % from N fractions we create N numerators and N denominators
+    declareNumerators(SolutionDigits, Constraints-Cs2), % declare numerators with BEE constraints
+    declareDenominators(SolutionDigits, Cs2-Cs3),   % declare denominators with BEE constraints
     length(SummedTopNumerator, N),
-    extractCrtSolutionDigits(SolutionDigits, CrtSolutionDigits),
-    beeFindSummedTopNumerator(1, CrtSolutionDigits, SummedTopNumerator, Cs3-Cs4),
-    beeCrtSumAll(SummedTopNumerator, AdditionResultNumerator, Cs4-Cs5),
-    extractDenominators(CrtSolutionDigits, DenominatorsList),
-    beeCrtMultiplyAll(DenominatorsList, AdditionResultDenominator, Cs5-Cs6),
-    applyDigitAppearancesConstraints(SolutionDigits, N, Cs6-Cs7),
-    Cs7 = [int_arrays_eq(AdditionResultDenominator,AdditionResultNumerator)].
+    extractCrtSolutionDigits(SolutionDigits, CrtSolutionDigits),    % separate the remainder representations from the Map(SolutionDigits)
+    beeFindSummedTopNumerator(1, CrtSolutionDigits, SummedTopNumerator, Cs3-Cs4),   % extract the list of numbers resulted from multiplications towards a common divisor
+    beeCrtSumAll(SummedTopNumerator, AdditionResultNumerator, Cs4-Cs5), % sum those numbers into one number
+    extractDenominators(CrtSolutionDigits, DenominatorsList),   % extract the list of denominators
+    beeCrtMultiplyAll(DenominatorsList, AdditionResultDenominator, Cs5-Cs6),    % multiply the denominators into the common denominator
+    % IMPORTANT - was commented since the generated constraints results unsat. will be explained in the solution notes.
+    % applyDigitAppearancesConstraints(SolutionDigits, N, Cs6-Cs7),
+    % Cs7 = [int_arrays_eq(AdditionResultDenominator,AdditionResultNumerator)].
+    Cs6 = [int_arrays_eq(AdditionResultDenominator,AdditionResultNumerator)].   % the equality will force the digits selection to result 1 in the equation
+
     
-% SummedTopNumerator = a*ef*hi + d*bc*hi + g*bc*ef (for N = 3)
+% beeFindSummedTopNumerator(I+, SolutionDigits+, SummedTopNumerator-, Cs-)
+% creates a list of the numbers that are resulted from the multiplications made, creating a common divisor
+% for N = 3 will result:
+% SummedTopNumerator = [a*ef*hi, d*bc*hi, g*bc*ef]
 beeFindSummedTopNumerator(I, _, SummedTopNumerator, Tail-Tail) :-
     length(SummedTopNumerator, Len),
     I > Len.
@@ -266,6 +229,8 @@ extractDenominators([_, Denominator | Rest], [Denominator | RestExtracted]) :-
     extractDenominators(Rest, RestExtracted).
 
 
+% subtractIthElement(I+, J+, List+, SubtractedList-)
+% removes the Ith elements from list(select caused us unwanted unification)
 subtractIthElement(_, _, [], []).
 subtractIthElement(I, I, [_ | T], SubtractedList) :-
     I1 is I + 1,
@@ -286,17 +251,17 @@ declareDenominators([_, Num = CrtNum | Rest], [new_int(Num, 11, 99) | RestConstr
 
 declareNumerators([], Tail-Tail).
 declareNumerators([Num = CrtNum, _ | Rest], [new_int(Num, 1, 9) | RestConstraints]-Tail) :-
-% declareNumerators([Num = CrtNum, _ | Rest], RestConstraints-Tail) :-
     base(Base),
     createCrtNum(CrtNum, Base, RestConstraints-Cs2), % create the variables of the representation
     setCrtCorrectnessConstraints(CrtNum, Base, Num, Cs2-Cs3), % force the correctness of the representation
     declareNumerators(Rest, Cs3-Tail).
 
-% only declares the CRT representation variables
+% createCrtNum(CrtNum-, Base+, Cs-) - create BEE variables for the remainder representation of a number
 createCrtNum([], [], Tail-Tail).
 createCrtNum([HCrtNum | RestCrtNum], [HBase | RestBase], [new_int(HCrtNum, 0, HBase) | RestConstraints]-Tail) :-
     createCrtNum(RestCrtNum, RestBase, RestConstraints-Tail).
 
+% setCrtCorrectnessConstraints(CrtNum+, Base+, Decimal+, Cs)
 % create the mapping between the decimal and the contents of the crt
 setCrtCorrectnessConstraints([], [], _, Tail-Tail).
 setCrtCorrectnessConstraints([ HCrtNum | RestCrtNum], [HBase | RestBase], Decimal, [ int_mod(Decimal, HBase, HCrtNum) | RestConstraints]-Tail) :-
@@ -306,13 +271,14 @@ extractCrtSolutionDigits([], []).
 extractCrtSolutionDigits([ _ = Crt | Rest], [Crt | RestCrt]) :-
     extractCrtSolutionDigits(Rest, RestCrt).
 
+% applyDigitAppearancesConstraints(SolutionDigits+, N+, Cs)
+% applies the constraints that force the appearances limit of digits, making the solution correct
 applyDigitAppearancesConstraints(SolutionDigits, N, Constraints-Tail) :-
-    convertRepresentationToDirect(SolutionDigits, ConvertedSolutionDigits, Constraints-Cs2),
-    matrixTranspose(ConvertedSolutionDigits, TransposedConvertedDigits),
-    maxSumDirectRepresentationDigits(N, MaxSumValue),
-    sumDirectRepresentationDigits(TransposedConvertedDigits, MaxSumValue, Cs2-Tail).
+    convertRepresentationToDirect(SolutionDigits, ConvertedSolutionDigits, Constraints-Cs2),% convert the numbers to direct encoding
+    matrixTranspose(ConvertedSolutionDigits, TransposedConvertedDigits),   
+    maxSumDirectRepresentationDigits(N, MaxSumValue),   % sum the direct encodings - when the digit appeared 1 will be added and when it did not appear 1 will be decreased
+    sumDirectRepresentationDigits(TransposedConvertedDigits, MaxSumValue, Cs2-Tail).    % set the maximum valid value for the results, preventing digits to appear more times than they should
 
-% A/BC fraction at a time
 convertRepresentationToDirect([], [], Tail-Tail).
 convertRepresentationToDirect([AInt = _, BC = _ | Rest], [A, B, C | RestConvertedSolutionDigits], Cs-Tail) :-
     Cs = [
@@ -394,21 +360,40 @@ solve(fraction(N), Solution) :-
 
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% convert remainders representation into decimal representation utility
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% :-
-%     crtRepresentation(17, X1),
-%     crtRepresentation(15, X2),
-%     crtMultiplication(X1, X2, X),
-%     writeln(X),
-%     crtRepresentationToDecimal(X, Num),
-%     writeln(Num).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% verify
+crtToDecimalVerify(CrtNum, DecimalRepr) :-
+    crtRepresentation(DecimalRepr, ExpectedCrt),
+    ExpectedCrt == CrtNum.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% encode
+crtToDecimalEncode(CrtNum, map(Decimal), [new_int(Decimal, 1, 1000) | Constraints]) :-%TODO gal find a suitable number
+    base(Base),
+    crtToDecimalEncode(CrtNum, Base, Decimal, Constraints).
 
 
-% t:-
-%     verify(3, [5, 3, 4, 7, 6, 8, 9, 1, 2]).
-    % length(SummedTopNumerator, 3),
-    % NumeratorsList = [[1,2,0,5,5],[1,1,2,0,7],[1,0,4,2,9]],
-    % DenominatorsList = [[0,1,4,6,1],[0,2,3,5,2],[0,0,2,5,1]],
-    % findSummedTopNumerator(1, NumeratorsList, DenominatorsList, SummedTopNumerator).
+crtToDecimalEncode([], [], _, []).
+crtToDecimalEncode([ HCrtNum | RestCrtNum], [HBase | RestBase], Decimal, [ int_mod(Decimal, HBase, HCrtNum) | RestConstraints]) :-
+    crtToDecimalEncode(RestCrtNum, RestBase, Decimal, RestConstraints).
+    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% decode
+
+crtToDecimalDecode(map(X), Decimal) :-
+    decodeInt(X, Decimal).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% crtRepresentationToDecimal
+
+crtRepresentationToDecimal(CrtNum, DecimalRepr) :-
+    runExpr(CrtNum,DecimalRepr,
+        bonus:crtToDecimalEncode,
+        bonus:crtToDecimalDecode,
+        bonus:crtToDecimalVerify).
+
