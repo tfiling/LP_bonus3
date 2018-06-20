@@ -92,7 +92,7 @@ crtRepresentation(Num, [HBase | RestBase], [ X | RestRepr]-Tail) :-
     X is mod(Num, HBase),
     crtRepresentation(Num, RestBase, RestRepr-Tail).
 
-
+% crtAddition(Num1+, Num2+, Result-) - adds two numbers represented by remainders
 crtAddition(Num1, Num2, Result) :-
     base(Base),
     crtAddition(Base, Num1, Num2, Result-[]).
@@ -104,13 +104,13 @@ crtAddition([HBase | RestBase], [H1 | Rest1], [H2 | Rest2], [Res | RestRes]-Tail
     crtAddition(RestBase, Rest1, Rest2, RestRes-Tail).
 
 
-% crtSumAll(NumList+, Result-) - aggregative add all crt numbers in NumList into the sum Result
+% crtSumAll(NumList+, Result-) - aggregative add all numbers in NumList into the sum Result
 crtSumAll([Result], Result).
 crtSumAll([X1, X2 | Rest], Result) :-
     crtAddition(X1, X2, Res),
     crtSumAll([Res | Rest], Result).
 
-
+% crtMultiplication(Num1+, Num2+, Result-) - multiply two numbers
 crtMultiplication(Num1, Num2, Result) :-
     base(Base),
     crtMultiplication(Base, Num1, Num2, Result-[]).
@@ -121,39 +121,44 @@ crtMultiplication([HBase | RestBase], [H1 | Rest1], [H2 | Rest2], [Res | RestRes
     Res is mod(Mul, HBase),
     crtMultiplication(RestBase, Rest1, Rest2, RestRes-Tail).
 
-% crtMultiplyAll(NumList+, Result-) - aggregative multiply all crt numbers in NumList
+% crtMultiplyAll(NumList+, Result-) - aggregative multiply all numbers in NumList into Result
 crtMultiplyAll([Result], Result).
 crtMultiplyAll([X1, X2 | Rest], Result) :-
     crtMultiplication(X1, X2, Res),
     crtMultiplyAll([Res | Rest], Result).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% BEE compatible crt
+%% BEE compatible crt 
+%% similar API to the above one only that this one can get unknown variables and returns BEE constraints
+%% that can be satisfied only when the result is as expected from the arithmetic expression
 
+
+% beeCrtAddition(Num1+, Num2+, Result-, Cs-) - sums Num1 and Num2 into Result
 beeCrtAddition(Num1, Num2, Result, Cs-Tail) :-
     base(Base),
     beeCrtAddition(Base, Num1, Num2, Result-[], Cs-Tail).
 
+% beeCrtSumAll(Args+, Result-, Cs-) - sums all of the numbers in args into Result
 beeCrtSumAll(Args, Result, Cs-Tail) :-
     matrixTranspose(Args, ArgsT),
     base(Base),
-    tmpSum(ArgsT, Result, Base, Cs-Tail).
+    beeCrtSumAll(ArgsT, Result, Base, Cs-Tail).
 
 
-tmpSum([], [], [], Tail-Tail).
-tmpSum([H | T], [HR | TR], [HB | TB], Cs-Tail) :-
+beeCrtSumAll([], [], [], Tail-Tail).
+beeCrtSumAll([H | T], [HR | TR], [HB | TB], Cs-Tail) :-
     Cs = [
         new_int(HR, 0, HB), 
         int_array_sum_modK(H, HB, HR) | Cs2
     ],
-    tmpSum(T, TR, TB, Cs2-Tail).
+    beeCrtSumAll(T, TR, TB, Cs2-Tail).
 
-
+% beeCrtMultiplication(Num1+, Num2+, Result-, Cs-) - multiply Num1 and Num2 into Result
 beeCrtMultiplication(Num1, Num2, Result, Cs-Tail) :-
     base(Base),
     beeCrtMultiplication(Base, Num1, Num2, Result, Cs-Tail).
 
-
+% beeCrtMultiplyAll(Args+, Result+, Cs-) - aggregative multiply all numbers in Args into Result
 beeCrtMultiplyAll(Args, Result, Cs-Tail) :-
     matrixTranspose(Args, ArgsT),
     base(Base),
