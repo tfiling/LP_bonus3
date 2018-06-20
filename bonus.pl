@@ -2,10 +2,6 @@
 :- use_module('./bee/bApplications/auxs/auxRunExpr',[runExpr/5, runExprMax/5, runExprMin/5, decodeInt/2, decodeIntArray/2]).
 :- use_module('./bee/bApplications/auxs/auxMatrix',[matrixCreate/3, matrixGetCell/4, matrixTranspose/2]).
 
-% TODO ask mike:
-% on verify Im assuming the input a list of digits and just count the appearances
-% which base should I use for accuracy with large numbers? it s
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% part 1: verify
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -14,28 +10,30 @@ verify(N, DigitList) :-
     length(DigitList, Len),
     0 is mod(Len, 3),
     N is div(Len, 3),
-    validateDigitAppearances(N, DigitList),
-    parseDigitList(DigitList, NumeratorsList, DenominatorsList),
+    validateDigitAppearances(N, DigitList), % validate digits appearances
+    parseDigitList(DigitList, NumeratorsList, DenominatorsList),    % parse digit list into numerators and denominators of the equation's fractions
     length(SummedTopNumerator, N),
-    findSummedTopNumerator(1, NumeratorsList, DenominatorsList, SummedTopNumerator),
-    crtSumAll(SummedTopNumerator, AdditionResultNumerator),
-    crtMultiplyAll(DenominatorsList, AdditionResultDenominator),
-    AdditionResultDenominator == AdditionResultNumerator.
+    findSummedTopNumerator(1, NumeratorsList, DenominatorsList, SummedTopNumerator),    
+    crtSumAll(SummedTopNumerator, AdditionResultNumerator), % the equation is molded into one fraction, calculate this fraction's numerator
+    crtMultiplyAll(DenominatorsList, AdditionResultDenominator),    % the equation is molded into one fraction, calculate this fraction's denominator
+    AdditionResultDenominator == AdditionResultNumerator.   % this is a valid solution if the one big fraction's numerator is equal to its denominator, which means the equation (equals to 1) is true
 
-
+% validateDigitAppearances(N+, Instance+) 
+% satisfies if and only if the appearances of each digit in Instance doesn't exceed the allowed ceiling(3*N / 9)
 validateDigitAppearances(N, Instance) :-
     N3 is N * 3,
     MaxAppearances is ceiling(N3 / 9),
     findall(X, between(1, 9, X), Digits),
     validateMaxAppearancesPerDigit(Instance, MaxAppearances, Digits).
 
-
+% validate appearances per digit
 validateMaxAppearancesPerDigit(_, _, []).
 validateMaxAppearancesPerDigit(Instance, MaxAppearances, [Digit | RestDigits]) :-
     count(Instance, Digit, Appearances),
     Appearances =< MaxAppearances,
     validateMaxAppearancesPerDigit(Instance, MaxAppearances, RestDigits).
 
+% count(Digits+, SpecificDigit+, Count-) - returns via Count how many times SpecificDigit appears in Digits
 count([],_,0).
 count([Element|T],Element,Y):- 
     count(T,Element,Z), 
@@ -45,15 +43,18 @@ count([Other|T],Element,Z):-
     count(T,Element,Z).
 
 % returns the crt representations of the denominator and numerators in the list
+% for each three digits, composes the numerator and denominator of the current fraction 
+% and converts them to the Chinese Remainder Theorem representation
 parseDigitList([], [], []).
 parseDigitList([ Xi, Yi, Zi | Rest], [CurrentCrtNumerator | RestNumerators], [CurrentCrtDenominator | RestDenominators]) :-
     DecimalDenominator is Yi * 10 + Zi,
     crtRepresentation(DecimalDenominator, CurrentCrtDenominator),
     crtRepresentation(Xi, CurrentCrtNumerator),
-    % append([Xi, Yi, Zi], Rest, DigitList),
     parseDigitList(Rest, RestNumerators, RestDenominators).
 
 % SummedTopNumerator = a*ef*hi + d*bc*hi + g*bc*ef (for N = 3)
+% findSummedTopNumerator(I+, NumeratorsList+, DenominatorsList+, SummedTopNumerator-)
+% the equation is molded into one fraction, calculate this fraction's nominator and return it with SummedTopNumerator
 findSummedTopNumerator(I, _, _, SummedTopNumerator) :-
     length(SummedTopNumerator, Len),
     I > Len.
@@ -77,11 +78,10 @@ calculateIthTopSumComponent(I, NumeratorsList, DenominatorsList, Component) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% crt representation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+% the base used for calculating the remainders representing a number according  the Chinese Remainder Theorem
 base([2, 3, 5, 7, 11, 13, 17]).
-% prime numbers
-% 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199
 
+% crtRepresentation(Num+, Repr-) - returns with Repr the representation of Num in remainders
 crtRepresentation(Num, Repr) :-
     base(Base),
     crtRepresentation(Num, Base, Repr-[]).
@@ -163,7 +163,7 @@ beeCrtMultiplyAll(Args, Result, Cs-Tail) :-
 tmpMul([], [], [], Tail-Tail).
 tmpMul([H | T], [HR | TR], [HB | TB], Cs-Tail) :-
     Cs = [
-        new_int(Product, 0, 99999), % TODO gal find suitable number
+        new_int(Product, 0, 1000), % TODO gal find suitable number
         int_array_times(H, Product),
         new_int(HR, 0, HB),
         int_mod(Product, HB, HR) | Cs2
@@ -183,7 +183,7 @@ crtToDecimalVerify(CrtNum, DecimalRepr) :-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% encode
-crtToDecimalEncode(CrtNum, map(Decimal), [new_int(Decimal, 1, 99999) | Constraints]) :-%TODO gal find a suitable number
+crtToDecimalEncode(CrtNum, map(Decimal), [new_int(Decimal, 1, 1000) | Constraints]) :-%TODO gal find a suitable number
     base(Base),
     crtToDecimalEncode(CrtNum, Base, Decimal, Constraints).
 
